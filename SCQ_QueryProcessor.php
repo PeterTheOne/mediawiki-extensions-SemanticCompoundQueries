@@ -101,7 +101,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return array
 	 */
-	protected static function getSubParams( $param ) {
+	public static function getSubParams( $param ) {
 		$sub_params = array();
 		$sub_param = '';
 		$uncompleted_square_brackets = 0;
@@ -138,7 +138,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return SMWQueryResult
 	 */
-	protected static function getQueryResultFromFunctionParams( $rawparams, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $showmode = false ) {
+	public static function getQueryResultFromFunctionParams( $rawparams, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $showmode = false ) {
 		$printouts = null;
 		self::processFunctionParams( $rawparams, $querystring, $params, $printouts, $showmode );
 		return self::getQueryResultFromQueryString( $querystring, $params, $printouts, SMW_OUTPUT_WIKI, $context );
@@ -152,7 +152,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return array
 	 */
-	protected static function mergeSMWQueryResults( $result1, $result2 ) {
+	public static function mergeSMWQueryResults( $result1, $result2 ) {
 		if ( $result1 == null ) {
 			return $result2;
 		}
@@ -172,7 +172,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 		return $result1;
 	}
 
-	protected static function mergeSMWPrintRequests( $printRequests1, $printRequests2 ) {
+	public static function mergeSMWPrintRequests( $printRequests1, $printRequests2 ) {
 		$existingPrintoutLabels = array();
 		foreach ( $printRequests1 as $p1 ) {
 			$existingPrintoutLabels[] = $p1->getLabel();
@@ -239,7 +239,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return string
 	 */
-	protected static function getResultFromQueryResult( SCQQueryResult $res, array $params, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $format = '' ) {
+	public static function getResultFromQueryResult( SCQQueryResult $res, array $params, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $format = '' ) {
 		wfProfileIn( 'SCQQueryProcessor::getResultFromQueryResult' );
 
 		if ( version_compare( SMW_VERSION, '1.6.1', '>' ) ) {

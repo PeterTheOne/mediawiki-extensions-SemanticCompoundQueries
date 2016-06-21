@@ -37,6 +37,9 @@ $wgHooks['ParserFirstCallInit'][] = 'scqgRegisterParser';
 
 $wgAutoloadClasses['SCQQueryProcessor'] = __DIR__ . '/SCQ_QueryProcessor.php';
 $wgAutoloadClasses['SCQQueryResult'] = __DIR__ . '/SCQ_QueryResult.php';
+$wgAutoloadClasses['SCQCompoundAsk'] = __DIR__ . '/SCQ_CompoundAsk.php';
+
+$wgAPIModules['compoundask'] = '\SCQCompoundAsk';
 
 function scqgRegisterParser( Parser &$parser ) {
 	$parser->setFunctionHook( 'compound_query', array( 'SCQQueryProcessor', 'doCompoundQuery' ) );
