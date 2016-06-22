@@ -7,6 +7,7 @@
  * @ingroup SemanticCompoundQueries
  * 
  * @author Yaron Koren
+ * @author Peter Grassberger < petertheone@gmail.com >
  */
 class SCQQueryProcessor extends SMWQueryProcessor {
 
@@ -39,57 +40,81 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 		$params = func_get_args();
 		array_shift( $params ); // We already know the $parser.
 
-		$other_params = array();
-		$results = array();
-		$printRequests = array();
+		list( $queryParams, $otherParams ) = self::separateParams( $params );
+		list( $queryResult, $otherParams ) = self::queryAndMergeResults( $queryParams, $otherParams );
+
+		return self::getResultFromQueryResult(
+			$queryResult,
+			$otherParams,
+			SMW_OUTPUT_WIKI
+		);
+	}
+
+	/**
+	 * Separates $queryParams from $otherParams.
+	 *
+	 * Very primitive heuristic - if the parameter
+	 * includes a square bracket, then it's a
+	 * sub-query; otherwise it's a regular parameter.
+	 *
+	 * @param $params
+	 * @return array
+	 */
+	public static function separateParams( $params ) {
 		$queryParams = array();
+		$otherParams = array();
 
 		foreach ( $params as $param ) {
-			// Very primitive heuristic - if the parameter
-			// includes a square bracket, then it's a
-			// sub-query; otherwise it's a regular parameter.
 			if ( strpos( $param, '[' ) !== false ) {
 				$queryParams[] = $param;
 			} else {
 				$parts = explode( '=', $param, 2 );
 
 				if ( count( $parts ) >= 2 ) {
-					$other_params[strtolower( trim( $parts[0] ) )] = $parts[1]; // don't trim here, some params care for " "
+					$otherParams[strtolower( trim( $parts[0] ) )] = $parts[1]; // don't trim here, some params care for " "
 				}
 			}
 		}
+		return array( $queryParams, $otherParams );
+	}
+
+	/**
+	 * Query and merge results of subqueries.
+	 *
+	 * @param $queryParams
+	 * @param $otherParams
+	 * @return array
+	 */
+	public static function queryAndMergeResults( $queryParams, $otherParams ) {
+		$results = array();
+		$printRequests = array();
 
 		foreach ( $queryParams as $param ) {
 			$subQueryParams = self::getSubParams( $param );
 
-			if ( array_key_exists( 'format', $other_params ) && !array_key_exists( 'format', $subQueryParams ) ) {
-				$subQueryParams['format'] = $other_params['format'];
+			if ( array_key_exists( 'format', $otherParams ) && !array_key_exists( 'format', $subQueryParams ) ) {
+				$subQueryParams['format'] = $otherParams['format'];
 			}
 
-			$next_result = self::getQueryResultFromFunctionParams(
+			$nextResult = self::getQueryResultFromFunctionParams(
 				$subQueryParams,
 				SMW_OUTPUT_WIKI
 			);
 
-			$results = self::mergeSMWQueryResults( $results, $next_result->getResults() );
-			$printRequests = self::mergeSMWPrintRequests( $printRequests, $next_result->getPrintRequests() );
+			$results = self::mergeSMWQueryResults( $results, $nextResult->getResults() );
+			$printRequests = self::mergeSMWPrintRequests( $printRequests, $nextResult->getPrintRequests() );
 		}
 
 		// Sort results so that they'll show up by page name
 		uasort( $results, array( 'SCQQueryProcessor', 'compareQueryResults' ) );
 
-		$query_result = new SCQQueryResult( $printRequests, new SMWQuery(), $results, smwfGetStore() );
+		$queryResult = new SCQQueryResult( $printRequests, new SMWQuery(), $results, smwfGetStore() );
 
 		if ( version_compare( SMW_VERSION, '1.6.1', '>' ) ) {
-			SMWQueryProcessor::addThisPrintout( $printRequests, $other_params );
-			$other_params = parent::getProcessedParams( $other_params, $printRequests );
+			SMWQueryProcessor::addThisPrintout( $printRequests, $otherParams );
+			$otherParams = parent::getProcessedParams( $otherParams, $printRequests );
 		}
-
-		return self::getResultFromQueryResult(
-			$query_result,
-			$other_params,
-			SMW_OUTPUT_WIKI
-		);
+		return array( $queryResult, $otherParams );
 	}
 
 	/**
@@ -101,7 +126,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return array
 	 */
-	public static function getSubParams( $param ) {
+	protected static function getSubParams( $param ) {
 		$sub_params = array();
 		$sub_param = '';
 		$uncompleted_square_brackets = 0;
@@ -138,7 +163,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return SMWQueryResult
 	 */
-	public static function getQueryResultFromFunctionParams( $rawparams, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $showmode = false ) {
+	protected static function getQueryResultFromFunctionParams( $rawparams, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $showmode = false ) {
 		$printouts = null;
 		self::processFunctionParams( $rawparams, $querystring, $params, $printouts, $showmode );
 		return self::getQueryResultFromQueryString( $querystring, $params, $printouts, SMW_OUTPUT_WIKI, $context );
@@ -152,7 +177,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return array
 	 */
-	public static function mergeSMWQueryResults( $result1, $result2 ) {
+	protected static function mergeSMWQueryResults( $result1, $result2 ) {
 		if ( $result1 == null ) {
 			return $result2;
 		}
@@ -172,7 +197,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 		return $result1;
 	}
 
-	public static function mergeSMWPrintRequests( $printRequests1, $printRequests2 ) {
+	protected static function mergeSMWPrintRequests( $printRequests1, $printRequests2 ) {
 		$existingPrintoutLabels = array();
 		foreach ( $printRequests1 as $p1 ) {
 			$existingPrintoutLabels[] = $p1->getLabel();
@@ -205,7 +230,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 		}
 
 		$query = self::createQuery( $querystring, $params, $context, null, $extraPrintouts );
-		$query_result = smwfGetStore()->getQueryResult( $query );
+		$queryResult = smwfGetStore()->getQueryResult( $query );
 
 		$parameters = array();
 
@@ -218,13 +243,13 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 			$parameters = $params;
 		}
 
-		foreach ( $query_result->getResults() as $wiki_page ) {
+		foreach ( $queryResult->getResults() as $wiki_page ) {
 			$wiki_page->display_options = $parameters;
 		}
 
 		wfProfileOut( 'SCQQueryProcessor::getQueryResultFromQueryString' );
 
-		return $query_result;
+		return $queryResult;
 	}
 
 	/**
@@ -239,7 +264,7 @@ class SCQQueryProcessor extends SMWQueryProcessor {
 	 * 
 	 * @return string
 	 */
-	public static function getResultFromQueryResult( SCQQueryResult $res, array $params, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $format = '' ) {
+	protected static function getResultFromQueryResult( SCQQueryResult $res, array $params, $outputmode, $context = SMWQueryProcessor::INLINE_QUERY, $format = '' ) {
 		wfProfileIn( 'SCQQueryProcessor::getResultFromQueryResult' );
 
 		if ( version_compare( SMW_VERSION, '1.6.1', '>' ) ) {
